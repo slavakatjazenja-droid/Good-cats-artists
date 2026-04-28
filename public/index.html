@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="manifest" href="manifest.json">
+
+<title>Draw Together</title>
+
+<style>
+body { margin:0; overflow:hidden; touch-action:none; font-family:sans-serif; }
+canvas { display:block; }
+
+.toolbar{
+  position:fixed; top:10px; left:10px;
+  background:white; padding:8px;
+  border-radius:10px; display:flex; gap:6px;
+}
+
+.color{ width:25px; height:25px; border-radius:50%; }
+.eraser{ padding:5px 10px; background:#eee; border-radius:6px; }
+</style>
+</head>
+
+<body>
+
+<div class="toolbar">
+<div class="color" style="background:black" onclick="setColor('black')"></div>
+<div class="color" style="background:red" onclick="setColor('red')"></div>
+<div class="color" style="background:blue" onclick="setColor('blue')"></div>
+<div class="color" style="background:green" onclick="setColor('green')"></div>
+<div class="color" style="background:purple" onclick="setColor('purple')"></div>
+<div class="color" style="background:pink" onclick="setColor('pink')"></div>
+<div class="eraser" onclick="setEraser()">🧽</div>
+</div>
+
+<canvas id="c"></canvas>
+
+<script src="/socket.io/socket.io.js"></script>
+<script>
+const socket = io();
+
+const room = prompt("Room code:");
+socket.emit("join-room", room);
+
+const canvas = document.getElementById("c");
+const ctx = canvas.getContext("2d");
+
+canvas.width = innerWidth;
+canvas.height = innerHeight;
+
+let drawing = false;
+let color = "black";
+let size = 3;
+
+function setColor(c){ color=c; size=3; }
+function setEraser(){ color="white"; size=10; }
+
+function pos(e){
+  const t = e.touches ? e.touches[0] : e;
+  return {x:t.clientX, y:t.clientY};
+}
+
+function draw(x,y,c,s){
+  ctx.fillStyle=c;
+  ctx.beginPath();
+  ctx.arc(x,y,s,0,Math.PI*2);
+  ctx.fill();
+}
+
+canvas.addEventListener("touchstart", ()=>drawing=true);
+canvas.addEventListener("touchend", ()=>drawing=false);
+
+canvas.addEventListener("touchmove", (e)=>{
+  if(!drawing) return;
+  const {x,y}=pos(e);
+
+  draw(x,y,color,size);
+
+  socket.emit("draw",{x,y,color,size,room});
+});
+
+socket.on("draw",(d)=>{
+  draw(d.x,d.y,d.color,d.size);
+});
+</script>
+
+<script>
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("sw.js");
+}
+</script>
+
+</body>
+</html>
